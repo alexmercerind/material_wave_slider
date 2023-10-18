@@ -100,7 +100,7 @@ packages:
     source: hosted
     version: "0.5.0"
   material_wave_slider:
-    dependency: "direct dev"
+    dependency: "direct main"
     description:
       path: ".."
       relative: true

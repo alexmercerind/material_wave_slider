@@ -1,16 +1,217 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
-/// {@template animated_sine}
+/// {@template material_wave_slider}
 ///
-/// AnimatedSine
-/// ------------
-/// Animated sine wave sliding horizontally from right to left.
+/// MaterialWaveSlider
+/// ------------------
+/// Material Design 3 / Material You inspired waveform slider.
+///
+/// [SliderTheme] & [SliderThemeData] may be used to customize the visual appearance of the slider.
 ///
 /// {@endtemplate}
-class AnimatedSine extends StatefulWidget {
-  /// The [SinePainter] to draw the sine wave.
-  final SinePainter painter;
+class MaterialWaveSlider extends StatefulWidget {
+  // --------------------------------------------------
+
+  /// The current value of the slider.
+  final double value;
+
+  /// The minimum value the user can select.
+  final double min;
+
+  /// The maximum value the user can select.
+  final double max;
+
+  /// Called during a drag when the user is selecting a new value for the slider by dragging.
+  final void Function(double)? onChanged;
+
+  // --------------------------------------------------
+
+  /// The height of the slider.
+  final double height;
+
+  /// The amplitude of the wave.
+  final double? amplitude;
+
+  /// The duration of the transition.
+  final Duration transitionDuration;
+
+  /// Whether to show transition animation upon value change.
+  final bool transitionOnChange;
+
+  /// Builder that may be used to customize the default thumb.
+  final Widget Function(BuildContext)? thumbBuilder;
+
+  // --------------------------------------------------
+  const MaterialWaveSlider({
+    Key? key,
+    required this.value,
+    this.min = 0.0,
+    this.max = 1.0,
+    required this.onChanged,
+    this.height = 48.0,
+    this.amplitude,
+    this.transitionDuration = const Duration(milliseconds: 200),
+    this.transitionOnChange = true,
+    this.thumbBuilder,
+  }) : super(key: key);
+
+  @override
+  State<MaterialWaveSlider> createState() => MaterialWaveSliderState();
+}
+
+class MaterialWaveSliderState extends State<MaterialWaveSlider> {
+  double get _amplitude => widget.amplitude ?? (widget.height / 12.0);
+  double get _percent =>
+      ((_current ?? widget.value) / (widget.max - widget.min)).clamp(0.0, 1.0);
+
+  double? _current;
+  bool _running = true;
+
+  void pause() {
+    setState(() {
+      _running = false;
+    });
+  }
+
+  void resume() {
+    setState(() {
+      _running = true;
+    });
+  }
+
+  void onPointerDown(PointerDownEvent e, BoxConstraints constraints) {
+    if (widget.onChanged != null) {
+      setState(() {
+        _running = false;
+        _current = e.localPosition.dx /
+            constraints.maxWidth *
+            (widget.max - widget.min);
+      });
+    }
+  }
+
+  void onPointerMove(PointerMoveEvent e, BoxConstraints constraints) {
+    if (widget.onChanged != null) {
+      setState(() {
+        _running = false;
+        _current = e.localPosition.dx /
+            constraints.maxWidth *
+            (widget.max - widget.min);
+      });
+    }
+  }
+
+  void onPointerUp(PointerUpEvent e, BoxConstraints constraints) {
+    if (widget.onChanged != null) {
+      setState(() {
+        _running = true;
+        _current = null;
+      });
+      widget.onChanged?.call(
+        e.localPosition.dx / constraints.maxWidth * (widget.max - widget.min),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sliderTheme = SliderTheme.of(context);
+
+    final trackHeight = sliderTheme.trackHeight ?? 2.0;
+    final activeTrackHeight = trackHeight * 1.0;
+    final inactiveTrackHeight = trackHeight * 1.0;
+
+    // https://m3.material.io/components/sliders/specs
+    final activeTrackColor = widget.onChanged == null
+        ? (sliderTheme.disabledActiveTrackColor ??
+            theme.colorScheme.onSurface.withOpacity(0.38))
+        : (sliderTheme.activeTrackColor ?? theme.colorScheme.primary);
+    final inactiveTrackColor = widget.onChanged == null
+        ? (sliderTheme.activeTrackColor ??
+            theme.colorScheme.onSurface.withOpacity(0.12))
+        : (sliderTheme.activeTrackColor ?? theme.colorScheme.primaryContainer);
+    final thumbColor = widget.onChanged == null
+        ? (sliderTheme.disabledActiveTrackColor ??
+            theme.colorScheme.onSurface.withOpacity(0.38))
+        : (sliderTheme.activeTrackColor ?? theme.colorScheme.primary);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Listener(
+          onPointerDown: (e) => onPointerDown(e, constraints),
+          onPointerMove: (e) => onPointerMove(e, constraints),
+          onPointerUp: (e) => onPointerUp(e, constraints),
+          child: Container(
+            color: Colors.transparent,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                AnimatedSlide(
+                  width: constraints.maxWidth * _percent - 6.0,
+                  height: widget.height,
+                  repeat: (constraints.maxWidth / widget.height).ceil(),
+                  velocity: widget.height / 48.0 * 24.0,
+                  builder: (context) => TweenAnimationBuilder<double>(
+                    tween: Tween<double>(
+                      begin: _amplitude,
+                      end: _running ? _amplitude : 0.0,
+                    ),
+                    duration: widget.transitionDuration,
+                    curve: Curves.easeInOut,
+                    builder: (context, value, _) {
+                      return CustomPaint(
+                        painter: SinePainter(
+                          amplitude: value,
+                          strokeWidth: activeTrackHeight,
+                          delta: widget.height / (100.0 / 3.0),
+                          color: activeTrackColor,
+                        ),
+                        size: Size(
+                          widget.height,
+                          widget.height,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                widget.thumbBuilder?.call(context) ??
+                    Container(
+                      width: 6.0,
+                      height: widget.height * 0.75,
+                      decoration: BoxDecoration(
+                        color: thumbColor,
+                        borderRadius: BorderRadius.circular(3.0),
+                      ),
+                    ),
+                Expanded(
+                  child: Container(
+                    color: inactiveTrackColor,
+                    height: inactiveTrackHeight,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// {@template animated_slide}
+///
+/// AnimatedSlide
+/// ------------
+/// Animated sliding horizontally from right to left.
+///
+/// {@endtemplate}
+class AnimatedSlide extends StatefulWidget {
+  /// The [CustomPaint] to draw the sine wave.
+  final Widget Function(BuildContext) builder;
 
   /// The width of the wave.
   final double width;
@@ -24,9 +225,10 @@ class AnimatedSine extends StatefulWidget {
   /// The number of times the wave segment should be drawn.
   final int repeat;
 
-  const AnimatedSine({
+  /// {@macro animated_sine}
+  const AnimatedSlide({
     Key? key,
-    required this.painter,
+    required this.builder,
     required this.width,
     required this.height,
     this.velocity = 64.0,
@@ -34,10 +236,10 @@ class AnimatedSine extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<AnimatedSine> createState() => AnimatedSineState();
+  State<AnimatedSlide> createState() => AnimatedSlideState();
 }
 
-class AnimatedSineState extends State<AnimatedSine> {
+class AnimatedSlideState extends State<AnimatedSlide> {
   final PageController controller = PageController();
 
   @override
@@ -60,13 +262,7 @@ class AnimatedSineState extends State<AnimatedSine> {
 
   @override
   Widget build(BuildContext context) {
-    final paint = CustomPaint(
-      painter: widget.painter,
-      size: Size(
-        widget.height,
-        widget.height,
-      ),
-    );
+    // TODO(alexmercerind): Possibly use snapshot after first render.
     return Stack(
       children: [
         SizedBox(
@@ -78,14 +274,15 @@ class AnimatedSineState extends State<AnimatedSine> {
             child: SizedBox(
               width: widget.height * widget.repeat,
               height: widget.height,
-              child: PageView.builder(
+              child: ListView.builder(
+                cacheExtent: 0.0,
                 controller: controller,
-                pageSnapping: false,
                 scrollDirection: Axis.horizontal,
                 physics: const NeverScrollableScrollPhysics(),
                 itemBuilder: (context, _) => Row(
                   children: [
-                    for (int i = 0; i < widget.repeat; i++) paint,
+                    for (int i = 0; i < widget.repeat; i++)
+                      widget.builder.call(context),
                   ],
                 ),
               ),
@@ -156,5 +353,5 @@ class SinePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
+  bool shouldRepaint(CustomPainter oldDelegate) => true;
 }

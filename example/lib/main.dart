@@ -12,8 +12,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
       home: const MyHomePage(),
     );
@@ -28,24 +28,44 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  var value = 0.5;
+  var running = true;
+  final key = GlobalKey<MaterialWaveSliderState>();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('package:material_wave_slider'),
+        title: const Text('Material 3 / Material You Slider'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: Center(
-        child: AnimatedSine(
-          width: 128.0 * 2,
-          height: 128.0,
-          repeat: 3,
-          painter: SinePainter(
-            strokeWidth: 4.0,
-            delta: 128.0 / (100.0 / 3.0),
-            color: Theme.of(context).primaryColor,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 36.0),
+          child: MaterialWaveSlider(
+            key: key,
+            value: value,
+            onChanged: (e) {
+              setState(() {
+                value = e;
+              });
+            },
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          setState(() {
+            if (running) {
+              running = false;
+              key.currentState?.pause();
+            } else {
+              running = true;
+              key.currentState?.resume();
+            }
+          });
+        },
+        child: Icon(running ? Icons.pause : Icons.play_arrow),
       ),
     );
   }
