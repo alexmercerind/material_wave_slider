@@ -36,32 +36,15 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: Center(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            CustomPaint(
-              painter: SinePainter(
-                color: Theme.of(context).colorScheme.primary,
-                strokeWidth: 4.0,
-              ),
-              size: const Size(128.0, 128.0),
-            ),
-            CustomPaint(
-              painter: SinePainter(
-                color: Theme.of(context).colorScheme.primary,
-                strokeWidth: 4.0,
-              ),
-              size: const Size(128.0, 128.0),
-            ),
-            CustomPaint(
-              painter: SinePainter(
-                color: Theme.of(context).colorScheme.primary,
-                strokeWidth: 4.0,
-              ),
-              size: const Size(128.0, 128.0),
-            ),
-          ],
+        child: AnimatedSine(
+          width: 128.0 * 2,
+          height: 128.0,
+          repeat: 3,
+          painter: SinePainter(
+            strokeWidth: 4.0,
+            delta: 128.0 / (100.0 / 3.0),
+            color: Theme.of(context).primaryColor,
+          ),
         ),
       ),
     );
