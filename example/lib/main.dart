@@ -45,21 +45,21 @@ class _MyHomePageState extends State<MyHomePage> {
                 color: Theme.of(context).colorScheme.primary,
                 strokeWidth: 4.0,
               ),
-              size: const Size(72.0, 72.0),
+              size: const Size(128.0, 128.0),
             ),
             CustomPaint(
               painter: SinePainter(
                 color: Theme.of(context).colorScheme.primary,
                 strokeWidth: 4.0,
               ),
-              size: const Size(72.0, 72.0),
+              size: const Size(128.0, 128.0),
             ),
             CustomPaint(
               painter: SinePainter(
                 color: Theme.of(context).colorScheme.primary,
                 strokeWidth: 4.0,
               ),
-              size: const Size(72.0, 72.0),
+              size: const Size(128.0, 128.0),
             ),
           ],
         ),

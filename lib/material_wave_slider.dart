@@ -15,6 +15,12 @@ class SinePainter extends CustomPainter {
   /// The delta used to calculate the [sin] value when drawing the path.
   final double delta;
 
+  /// The phase of the wave.
+  final double phase;
+
+  /// The amplitude of the wave.
+  final double amplitude;
+
   /// The stroke-cap of the wave.
   final StrokeCap strokeCap;
 
@@ -25,6 +31,8 @@ class SinePainter extends CustomPainter {
   const SinePainter({
     required this.color,
     this.delta = 2.0,
+    this.phase = 0.0,
+    this.amplitude = 16.0,
     this.strokeCap = StrokeCap.round,
     this.strokeWidth = 2.0,
   });
@@ -40,8 +48,10 @@ class SinePainter extends CustomPainter {
     final path = Path();
     path.moveTo(0.0, size.height / 2.0);
     for (double x = 0.0; x <= size.width; x += delta) {
-      final y = sin(x / size.width * 2 * pi) * 16.0 + size.height / 2.0;
-      path.lineTo(x, y);
+      path.lineTo(
+        x,
+        sin(x / size.width * 2 * pi + phase) * amplitude + size.height / 2.0,
+      );
     }
     canvas.drawPath(path, paint);
   }
