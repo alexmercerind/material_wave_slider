@@ -33,7 +33,10 @@ class MaterialWaveSlider extends StatefulWidget {
   /// The amplitude of the wave.
   final double? amplitude;
 
-  /// The duration of the transition.
+  /// The [Curve] of the transition.
+  final Curve transitionCurve;
+
+  /// The [Duration] of the transition.
   final Duration transitionDuration;
 
   /// Whether to show transition animation upon value change.
@@ -42,7 +45,12 @@ class MaterialWaveSlider extends StatefulWidget {
   /// Builder that may be used to customize the default thumb.
   final Widget Function(BuildContext)? thumbBuilder;
 
+  /// The width of the default thumb.
+  final double thumbWidth;
+
   // --------------------------------------------------
+
+  /// {@macro material_wave_slider}
   const MaterialWaveSlider({
     Key? key,
     required this.value,
@@ -51,9 +59,11 @@ class MaterialWaveSlider extends StatefulWidget {
     required this.onChanged,
     this.height = 48.0,
     this.amplitude,
+    this.transitionCurve = Curves.easeInOut,
     this.transitionDuration = const Duration(milliseconds: 200),
     this.transitionOnChange = true,
     this.thumbBuilder,
+    this.thumbWidth = 6.0,
   }) : super(key: key);
 
   @override
@@ -83,7 +93,9 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> {
   void onPointerDown(PointerDownEvent e, BoxConstraints constraints) {
     if (widget.onChanged != null) {
       setState(() {
-        _running = false;
+        if (widget.transitionOnChange) {
+          _running = false;
+        }
         _current = e.localPosition.dx /
             constraints.maxWidth *
             (widget.max - widget.min);
@@ -94,7 +106,9 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> {
   void onPointerMove(PointerMoveEvent e, BoxConstraints constraints) {
     if (widget.onChanged != null) {
       setState(() {
-        _running = false;
+        if (widget.transitionOnChange) {
+          _running = false;
+        }
         _current = e.localPosition.dx /
             constraints.maxWidth *
             (widget.max - widget.min);
@@ -105,12 +119,14 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> {
   void onPointerUp(PointerUpEvent e, BoxConstraints constraints) {
     if (widget.onChanged != null) {
       setState(() {
-        _running = true;
+        if (widget.transitionOnChange) {
+          _running = true;
+        }
         _current = null;
       });
-      widget.onChanged?.call(
-        e.localPosition.dx / constraints.maxWidth * (widget.max - widget.min),
-      );
+      final value =
+          e.localPosition.dx / constraints.maxWidth * (widget.max - widget.min);
+      widget.onChanged?.call(value.clamp(widget.min, widget.max));
     }
   }
 
@@ -150,43 +166,67 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                AnimatedSlide(
-                  width: constraints.maxWidth * _percent - 6.0,
+                SizedBox(
+                  width: (constraints.maxWidth * _percent).clamp(
+                    widget.thumbWidth,
+                    constraints.maxWidth,
+                  ),
                   height: widget.height,
-                  repeat: (constraints.maxWidth / widget.height).ceil(),
-                  velocity: widget.height / 48.0 * 24.0,
-                  builder: (context) => TweenAnimationBuilder<double>(
-                    tween: Tween<double>(
-                      begin: _amplitude,
-                      end: _running ? _amplitude : 0.0,
-                    ),
-                    duration: widget.transitionDuration,
-                    curve: Curves.easeInOut,
-                    builder: (context, value, _) {
-                      return CustomPaint(
-                        painter: SinePainter(
-                          amplitude: value,
-                          strokeWidth: activeTrackHeight,
-                          delta: widget.height / (100.0 / 3.0),
-                          color: activeTrackColor,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (constraints.maxWidth <= 0.0) {
+                              return const SizedBox.shrink();
+                            }
+                            return AnimatedSlide(
+                              width: constraints.maxWidth,
+                              height: widget.height,
+                              repeat:
+                                  (constraints.maxWidth / widget.height).ceil(),
+                              velocity: widget.height / 48.0 * 24.0,
+                              builder: (context) =>
+                                  TweenAnimationBuilder<double>(
+                                tween: Tween<double>(
+                                  begin: _running ? _amplitude : 0.0,
+                                  end: _running ? _amplitude : 0.0,
+                                ),
+                                curve: widget.transitionCurve,
+                                duration: widget.transitionDuration,
+                                builder: (context, value, _) {
+                                  return CustomPaint(
+                                    painter: SinePainter(
+                                      amplitude: value,
+                                      strokeWidth: activeTrackHeight,
+                                      delta: widget.height / 25.0,
+                                      color: activeTrackColor,
+                                    ),
+                                    size: Size(
+                                      widget.height,
+                                      widget.height,
+                                    ),
+                                  );
+                                },
+                              ),
+                            );
+                          },
                         ),
-                        size: Size(
-                          widget.height,
-                          widget.height,
-                        ),
-                      );
-                    },
+                      ),
+                      widget.thumbBuilder?.call(context) ??
+                          Container(
+                            width: widget.thumbWidth,
+                            height: widget.height * 0.75,
+                            decoration: BoxDecoration(
+                              color: thumbColor,
+                              borderRadius: BorderRadius.circular(
+                                widget.thumbWidth / 2.0,
+                              ),
+                            ),
+                          ),
+                    ],
                   ),
                 ),
-                widget.thumbBuilder?.call(context) ??
-                    Container(
-                      width: 6.0,
-                      height: widget.height * 0.75,
-                      decoration: BoxDecoration(
-                        color: thumbColor,
-                        borderRadius: BorderRadius.circular(3.0),
-                      ),
-                    ),
                 Expanded(
                   child: Container(
                     color: inactiveTrackColor,
@@ -247,8 +287,8 @@ class AnimatedSlideState extends State<AnimatedSlide> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.animateTo(
-        widget.velocity * const Duration(days: 1024).inSeconds,
-        duration: const Duration(days: 1024),
+        widget.velocity * const Duration(days: 1 << 32).inSeconds,
+        duration: const Duration(days: 1 << 32),
         curve: Curves.linear,
       );
     });
@@ -262,7 +302,6 @@ class AnimatedSlideState extends State<AnimatedSlide> {
 
   @override
   Widget build(BuildContext context) {
-    // TODO(alexmercerind): Possibly use snapshot after first render.
     return Stack(
       children: [
         SizedBox(
