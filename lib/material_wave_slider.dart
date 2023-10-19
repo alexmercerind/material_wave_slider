@@ -163,25 +163,41 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final sliderTheme = SliderTheme.of(context);
+    final defaults = theme.useMaterial3
+        ? _SliderDefaultsM3(context)
+        : _SliderDefaultsM2(context);
 
-    final trackHeight = sliderTheme.trackHeight ?? 2.0;
-    final activeTrackHeight = trackHeight * 1.0;
-    final inactiveTrackHeight = trackHeight * 1.0;
-
-    // https://m3.material.io/components/sliders/specs
-    final activeTrackColor = widget.onChanged == null
-        ? (sliderTheme.disabledActiveTrackColor ??
-            theme.colorScheme.onSurface.withOpacity(0.38))
-        : (sliderTheme.activeTrackColor ?? theme.colorScheme.primary);
-    final inactiveTrackColor = widget.onChanged == null
-        ? (sliderTheme.activeTrackColor ??
-            theme.colorScheme.onSurface.withOpacity(0.12))
-        : (sliderTheme.activeTrackColor ?? theme.colorScheme.primaryContainer);
-    final thumbColor = widget.onChanged == null
-        ? (sliderTheme.disabledActiveTrackColor ??
-            theme.colorScheme.onSurface.withOpacity(0.38))
-        : (sliderTheme.activeTrackColor ?? theme.colorScheme.primary);
+    SliderThemeData sliderTheme = SliderTheme.of(context);
+    sliderTheme = sliderTheme.copyWith(
+      trackHeight: sliderTheme.trackHeight ?? defaults.trackHeight,
+      activeTrackColor:
+          sliderTheme.activeTrackColor ?? defaults.activeTrackColor,
+      inactiveTrackColor:
+          sliderTheme.inactiveTrackColor ?? defaults.inactiveTrackColor,
+      secondaryActiveTrackColor: sliderTheme.secondaryActiveTrackColor ??
+          defaults.secondaryActiveTrackColor,
+      disabledActiveTrackColor: sliderTheme.disabledActiveTrackColor ??
+          defaults.disabledActiveTrackColor,
+      disabledInactiveTrackColor: sliderTheme.disabledInactiveTrackColor ??
+          defaults.disabledInactiveTrackColor,
+      disabledSecondaryActiveTrackColor:
+          sliderTheme.disabledSecondaryActiveTrackColor ??
+              defaults.disabledSecondaryActiveTrackColor,
+      activeTickMarkColor:
+          sliderTheme.activeTickMarkColor ?? defaults.activeTickMarkColor,
+      inactiveTickMarkColor:
+          sliderTheme.inactiveTickMarkColor ?? defaults.inactiveTickMarkColor,
+      disabledActiveTickMarkColor: sliderTheme.disabledActiveTickMarkColor ??
+          defaults.disabledActiveTickMarkColor,
+      disabledInactiveTickMarkColor:
+          sliderTheme.disabledInactiveTickMarkColor ??
+              defaults.disabledInactiveTickMarkColor,
+      thumbColor: sliderTheme.thumbColor ?? defaults.thumbColor,
+      disabledThumbColor:
+          sliderTheme.disabledThumbColor ?? defaults.disabledThumbColor,
+      valueIndicatorTextStyle: sliderTheme.valueIndicatorTextStyle ??
+          defaults.valueIndicatorTextStyle,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -232,9 +248,9 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider>
                                       painter: SinePainter(
                                         amplitude: value,
                                         phase: _animation.value,
-                                        strokeWidth: activeTrackHeight,
+                                        strokeWidth: sliderTheme.trackHeight!,
                                         delta: widget.height / 25.0,
-                                        color: activeTrackColor,
+                                        color: sliderTheme.activeTrackColor!,
                                       ),
                                       size: Size(
                                         widget.height,
@@ -253,7 +269,7 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider>
                             width: widget.thumbWidth,
                             height: widget.height * 0.75,
                             decoration: BoxDecoration(
-                              color: thumbColor,
+                              color: sliderTheme.thumbColor!,
                               borderRadius: BorderRadius.circular(
                                 widget.thumbWidth / 2.0,
                               ),
@@ -264,8 +280,8 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider>
                 ),
                 Expanded(
                   child: Container(
-                    color: inactiveTrackColor,
-                    height: inactiveTrackHeight,
+                    color: sliderTheme.inactiveTrackColor!,
+                    height: sliderTheme.trackHeight!,
                   ),
                 ),
               ],
@@ -401,3 +417,141 @@ class SinePainter extends CustomPainter {
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => true;
 }
+
+// --------------------------------------------------
+
+class _SliderDefaultsM2 extends SliderThemeData {
+  _SliderDefaultsM2(this.context)
+      : _colors = Theme.of(context).colorScheme,
+        super(trackHeight: 2.0);
+
+  final BuildContext context;
+  final ColorScheme _colors;
+
+  @override
+  Color? get activeTrackColor => _colors.primary;
+
+  @override
+  Color? get inactiveTrackColor => _colors.primary.withOpacity(0.24);
+
+  @override
+  Color? get secondaryActiveTrackColor => _colors.primary.withOpacity(0.54);
+
+  @override
+  Color? get disabledActiveTrackColor => _colors.onSurface.withOpacity(0.32);
+
+  @override
+  Color? get disabledInactiveTrackColor => _colors.onSurface.withOpacity(0.12);
+
+  @override
+  Color? get disabledSecondaryActiveTrackColor =>
+      _colors.onSurface.withOpacity(0.12);
+
+  @override
+  Color? get activeTickMarkColor => _colors.onPrimary.withOpacity(0.54);
+
+  @override
+  Color? get inactiveTickMarkColor => _colors.primary.withOpacity(0.54);
+
+  @override
+  Color? get disabledActiveTickMarkColor => _colors.onPrimary.withOpacity(0.12);
+
+  @override
+  Color? get disabledInactiveTickMarkColor =>
+      _colors.onSurface.withOpacity(0.12);
+
+  @override
+  Color? get thumbColor => _colors.primary;
+
+  @override
+  Color? get disabledThumbColor =>
+      Color.alphaBlend(_colors.onSurface.withOpacity(.38), _colors.surface);
+
+  @override
+  Color? get overlayColor => _colors.primary.withOpacity(0.12);
+
+  @override
+  TextStyle? get valueIndicatorTextStyle =>
+      Theme.of(context).textTheme.bodyLarge!.copyWith(
+            color: _colors.onPrimary,
+          );
+
+  @override
+  SliderComponentShape? get valueIndicatorShape =>
+      const RectangularSliderValueIndicatorShape();
+}
+
+class _SliderDefaultsM3 extends SliderThemeData {
+  _SliderDefaultsM3(this.context) : super(trackHeight: 2.0);
+
+  final BuildContext context;
+  late final ColorScheme _colors = Theme.of(context).colorScheme;
+
+  @override
+  Color? get activeTrackColor => _colors.primary;
+
+  @override
+  Color? get inactiveTrackColor => _colors.surfaceVariant;
+
+  @override
+  Color? get secondaryActiveTrackColor => _colors.primary.withOpacity(0.54);
+
+  @override
+  Color? get disabledActiveTrackColor => _colors.onSurface.withOpacity(0.38);
+
+  @override
+  Color? get disabledInactiveTrackColor => _colors.onSurface.withOpacity(0.12);
+
+  @override
+  Color? get disabledSecondaryActiveTrackColor =>
+      _colors.onSurface.withOpacity(0.12);
+
+  @override
+  Color? get activeTickMarkColor => _colors.onPrimary.withOpacity(0.38);
+
+  @override
+  Color? get inactiveTickMarkColor =>
+      _colors.onSurfaceVariant.withOpacity(0.38);
+
+  @override
+  Color? get disabledActiveTickMarkColor => _colors.onSurface.withOpacity(0.38);
+
+  @override
+  Color? get disabledInactiveTickMarkColor =>
+      _colors.onSurface.withOpacity(0.38);
+
+  @override
+  Color? get thumbColor => _colors.primary;
+
+  @override
+  Color? get disabledThumbColor =>
+      Color.alphaBlend(_colors.onSurface.withOpacity(0.38), _colors.surface);
+
+  @override
+  Color? get overlayColor =>
+      MaterialStateColor.resolveWith((Set<MaterialState> states) {
+        if (states.contains(MaterialState.dragged)) {
+          return _colors.primary.withOpacity(0.12);
+        }
+        if (states.contains(MaterialState.hovered)) {
+          return _colors.primary.withOpacity(0.08);
+        }
+        if (states.contains(MaterialState.focused)) {
+          return _colors.primary.withOpacity(0.12);
+        }
+
+        return Colors.transparent;
+      });
+
+  @override
+  TextStyle? get valueIndicatorTextStyle =>
+      Theme.of(context).textTheme.labelMedium!.copyWith(
+            color: _colors.onPrimary,
+          );
+
+  @override
+  SliderComponentShape? get valueIndicatorShape =>
+      const DropSliderValueIndicatorShape();
+}
+
+  // --------------------------------------------------
