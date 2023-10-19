@@ -33,13 +33,16 @@ class MaterialWaveSlider extends StatefulWidget {
   /// The amplitude of the wave.
   final double? amplitude;
 
-  /// The [Curve] of the transition.
+  /// The velocity of the wave.
+  final double velocity;
+
+  /// The [Curve] of the amplitude change transition.
   final Curve transitionCurve;
 
-  /// The [Duration] of the transition.
+  /// The [Duration] of the amplitude change transition.
   final Duration transitionDuration;
 
-  /// Whether to show transition animation upon value change.
+  /// Whether to show amplitude change transition upon value change.
   final bool transitionOnChange;
 
   /// Builder that may be used to customize the default thumb.
@@ -58,6 +61,7 @@ class MaterialWaveSlider extends StatefulWidget {
     this.max = 1.0,
     required this.onChanged,
     this.height = 48.0,
+    this.velocity = 2400.0,
     this.amplitude,
     this.transitionCurve = Curves.easeInOut,
     this.transitionDuration = const Duration(milliseconds: 200),
@@ -70,13 +74,25 @@ class MaterialWaveSlider extends StatefulWidget {
   State<MaterialWaveSlider> createState() => MaterialWaveSliderState();
 }
 
-class MaterialWaveSliderState extends State<MaterialWaveSlider> {
+class MaterialWaveSliderState extends State<MaterialWaveSlider>
+    with SingleTickerProviderStateMixin {
   double get _amplitude => widget.amplitude ?? (widget.height / 12.0);
   double get _percent =>
       ((_current ?? widget.value) / (widget.max - widget.min)).clamp(0.0, 1.0);
 
   double? _current;
   bool _running = true;
+
+  // [AnimationController] for animating the phase change of the each wave segment.
+  // This makes the wave appear to be moving.
+  late final AnimationController _animation = AnimationController(
+    vsync: this,
+    lowerBound: 0.0,
+    upperBound: 2 * pi,
+    duration: Duration(
+      milliseconds: widget.velocity.round(),
+    ),
+  );
 
   void pause() {
     setState(() {
@@ -90,7 +106,7 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> {
     });
   }
 
-  void onPointerDown(PointerDownEvent e, BoxConstraints constraints) {
+  void _onPointerDown(PointerDownEvent e, BoxConstraints constraints) {
     if (widget.onChanged != null) {
       setState(() {
         if (widget.transitionOnChange) {
@@ -103,7 +119,7 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> {
     }
   }
 
-  void onPointerMove(PointerMoveEvent e, BoxConstraints constraints) {
+  void _onPointerMove(PointerMoveEvent e, BoxConstraints constraints) {
     if (widget.onChanged != null) {
       setState(() {
         if (widget.transitionOnChange) {
@@ -116,7 +132,7 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> {
     }
   }
 
-  void onPointerUp(PointerUpEvent e, BoxConstraints constraints) {
+  void _onPointerUp(PointerUpEvent e, BoxConstraints constraints) {
     if (widget.onChanged != null) {
       setState(() {
         if (widget.transitionOnChange) {
@@ -128,6 +144,20 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> {
           e.localPosition.dx / constraints.maxWidth * (widget.max - widget.min);
       widget.onChanged?.call(value.clamp(widget.min, widget.max));
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _animation.repeat();
+    });
+  }
+
+  @override
+  void dispose() {
+    _animation.dispose();
+    super.dispose();
   }
 
   @override
@@ -156,9 +186,9 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> {
     return LayoutBuilder(
       builder: (context, constraints) {
         return Listener(
-          onPointerDown: (e) => onPointerDown(e, constraints),
-          onPointerMove: (e) => onPointerMove(e, constraints),
-          onPointerUp: (e) => onPointerUp(e, constraints),
+          onPointerDown: (e) => _onPointerDown(e, constraints),
+          onPointerMove: (e) => _onPointerMove(e, constraints),
+          onPointerUp: (e) => _onPointerUp(e, constraints),
           child: Container(
             color: Colors.transparent,
             child: Row(
@@ -187,6 +217,7 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> {
                                   (constraints.maxWidth / widget.height).ceil(),
                               velocity: widget.height / 48.0 * 24.0,
                               builder: (context) =>
+                                  // [TweenAnimationBuilder] for animating the amplitude change of the each wave segment.
                                   TweenAnimationBuilder<double>(
                                 tween: Tween<double>(
                                   begin: _running ? _amplitude : 0.0,
@@ -195,16 +226,20 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> {
                                 curve: widget.transitionCurve,
                                 duration: widget.transitionDuration,
                                 builder: (context, value, _) {
-                                  return CustomPaint(
-                                    painter: SinePainter(
-                                      amplitude: value,
-                                      strokeWidth: activeTrackHeight,
-                                      delta: widget.height / 25.0,
-                                      color: activeTrackColor,
-                                    ),
-                                    size: Size(
-                                      widget.height,
-                                      widget.height,
+                                  return AnimatedBuilder(
+                                    animation: _animation,
+                                    builder: (context, _) => CustomPaint(
+                                      painter: SinePainter(
+                                        amplitude: value,
+                                        phase: _animation.value,
+                                        strokeWidth: activeTrackHeight,
+                                        delta: widget.height / 25.0,
+                                        color: activeTrackColor,
+                                      ),
+                                      size: Size(
+                                        widget.height,
+                                        widget.height,
+                                      ),
                                     ),
                                   );
                                 },
@@ -249,7 +284,7 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> {
 /// Animated sliding horizontally from right to left.
 ///
 /// {@endtemplate}
-class AnimatedSlide extends StatefulWidget {
+class AnimatedSlide extends StatelessWidget {
   /// The [CustomPaint] to draw the sine wave.
   final Widget Function(BuildContext) builder;
 
@@ -276,54 +311,25 @@ class AnimatedSlide extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<AnimatedSlide> createState() => AnimatedSlideState();
-}
-
-class AnimatedSlideState extends State<AnimatedSlide> {
-  final PageController controller = PageController();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.animateTo(
-        widget.velocity * const Duration(days: 1 << 32).inSeconds,
-        duration: const Duration(days: 1 << 32),
-        curve: Curves.linear,
-      );
-    });
-  }
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
         SizedBox(
-          width: widget.width,
-          height: widget.height,
+          width: width,
+          height: height,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             physics: const NeverScrollableScrollPhysics(),
             child: SizedBox(
-              width: widget.height * widget.repeat,
-              height: widget.height,
-              child: ListView.builder(
-                cacheExtent: 0.0,
-                controller: controller,
-                scrollDirection: Axis.horizontal,
-                physics: const NeverScrollableScrollPhysics(),
-                itemBuilder: (context, _) => Row(
-                  children: [
-                    for (int i = 0; i < widget.repeat; i++)
-                      widget.builder.call(context),
-                  ],
-                ),
+              width: height * repeat,
+              height: height,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  for (int i = 0; i < repeat; i++) builder.call(context),
+                ],
               ),
             ),
           ),
@@ -381,12 +387,13 @@ class SinePainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     final path = Path();
-    path.moveTo(0.0, size.height / 2.0);
     for (double x = 0.0; x <= size.width + delta; x += delta) {
-      path.lineTo(
-        x,
-        sin(x / size.width * 2 * pi + phase) * amplitude + size.height / 2.0,
-      );
+      final y =
+          size.height / 2.0 + amplitude * sin(x / size.width * 2 * pi + phase);
+      if (x == 0.0) {
+        path.moveTo(x, y);
+      }
+      path.lineTo(x, y);
     }
     canvas.drawPath(path, paint);
   }
