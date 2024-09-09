@@ -61,7 +61,7 @@ class MaterialWaveSlider extends StatefulWidget {
     this.max = 1.0,
     required this.onChanged,
     this.height = 48.0,
-    this.velocity = 2400.0,
+    this.velocity = 2600.0,
     this.amplitude,
     this.transitionCurve = Curves.easeInOut,
     this.transitionDuration = const Duration(milliseconds: 200),
@@ -74,13 +74,12 @@ class MaterialWaveSlider extends StatefulWidget {
   State<MaterialWaveSlider> createState() => MaterialWaveSliderState();
 }
 
-class MaterialWaveSliderState extends State<MaterialWaveSlider>
-    with SingleTickerProviderStateMixin {
+class MaterialWaveSliderState extends State<MaterialWaveSlider> with SingleTickerProviderStateMixin {
   double get _amplitude => widget.amplitude ?? (widget.height / 12.0);
-  double get _percent =>
-      ((_current ?? widget.value) / (widget.max - widget.min)).clamp(0.0, 1.0);
+  double get _percent => ((_current ?? widget.value) / (widget.max - widget.min)).clamp(0.0, 1.0);
 
   double? _current;
+  bool _paused = false;
   bool _running = true;
 
   // [AnimationController] for animating the phase change of the each wave segment.
@@ -89,18 +88,20 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider>
     vsync: this,
     lowerBound: 0.0,
     upperBound: 2 * pi,
-    duration: Duration(
-      milliseconds: widget.velocity.round(),
-    ),
+    duration: Duration(milliseconds: widget.velocity.round()),
   );
 
   void pause() {
+    if (_paused) return;
+    _paused = true;
     setState(() {
       _running = false;
     });
   }
 
   void resume() {
+    if (!_paused) return;
+    _paused = false;
     setState(() {
       _running = true;
     });
@@ -109,12 +110,10 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider>
   void _onPointerDown(PointerDownEvent e, BoxConstraints constraints) {
     if (widget.onChanged != null) {
       setState(() {
-        if (widget.transitionOnChange) {
+        if (widget.transitionOnChange && !_paused) {
           _running = false;
         }
-        _current = e.localPosition.dx /
-            constraints.maxWidth *
-            (widget.max - widget.min);
+        _current = e.localPosition.dx / constraints.maxWidth * (widget.max - widget.min);
       });
     }
   }
@@ -122,12 +121,10 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider>
   void _onPointerMove(PointerMoveEvent e, BoxConstraints constraints) {
     if (widget.onChanged != null) {
       setState(() {
-        if (widget.transitionOnChange) {
+        if (widget.transitionOnChange && !_paused) {
           _running = false;
         }
-        _current = e.localPosition.dx /
-            constraints.maxWidth *
-            (widget.max - widget.min);
+        _current = e.localPosition.dx / constraints.maxWidth * (widget.max - widget.min);
       });
     }
   }
@@ -135,13 +132,12 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider>
   void _onPointerUp(PointerUpEvent e, BoxConstraints constraints) {
     if (widget.onChanged != null) {
       setState(() {
-        if (widget.transitionOnChange) {
+        if (widget.transitionOnChange && !_paused) {
           _running = true;
         }
         _current = null;
       });
-      final value =
-          e.localPosition.dx / constraints.maxWidth * (widget.max - widget.min);
+      final value = e.localPosition.dx / constraints.maxWidth * (widget.max - widget.min);
       widget.onChanged?.call(value.clamp(widget.min, widget.max));
     }
   }
@@ -163,40 +159,24 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final defaults = theme.useMaterial3
-        ? _SliderDefaultsM3(context)
-        : _SliderDefaultsM2(context);
+    final defaults = theme.useMaterial3 ? _SliderDefaultsM3(context) : _SliderDefaultsM2(context);
 
     SliderThemeData sliderTheme = SliderTheme.of(context);
     sliderTheme = sliderTheme.copyWith(
       trackHeight: sliderTheme.trackHeight ?? defaults.trackHeight,
-      activeTrackColor:
-          sliderTheme.activeTrackColor ?? defaults.activeTrackColor,
-      inactiveTrackColor:
-          sliderTheme.inactiveTrackColor ?? defaults.inactiveTrackColor,
-      secondaryActiveTrackColor: sliderTheme.secondaryActiveTrackColor ??
-          defaults.secondaryActiveTrackColor,
-      disabledActiveTrackColor: sliderTheme.disabledActiveTrackColor ??
-          defaults.disabledActiveTrackColor,
-      disabledInactiveTrackColor: sliderTheme.disabledInactiveTrackColor ??
-          defaults.disabledInactiveTrackColor,
-      disabledSecondaryActiveTrackColor:
-          sliderTheme.disabledSecondaryActiveTrackColor ??
-              defaults.disabledSecondaryActiveTrackColor,
-      activeTickMarkColor:
-          sliderTheme.activeTickMarkColor ?? defaults.activeTickMarkColor,
-      inactiveTickMarkColor:
-          sliderTheme.inactiveTickMarkColor ?? defaults.inactiveTickMarkColor,
-      disabledActiveTickMarkColor: sliderTheme.disabledActiveTickMarkColor ??
-          defaults.disabledActiveTickMarkColor,
-      disabledInactiveTickMarkColor:
-          sliderTheme.disabledInactiveTickMarkColor ??
-              defaults.disabledInactiveTickMarkColor,
+      activeTrackColor: sliderTheme.activeTrackColor ?? defaults.activeTrackColor,
+      inactiveTrackColor: sliderTheme.inactiveTrackColor ?? defaults.inactiveTrackColor,
+      secondaryActiveTrackColor: sliderTheme.secondaryActiveTrackColor ?? defaults.secondaryActiveTrackColor,
+      disabledActiveTrackColor: sliderTheme.disabledActiveTrackColor ?? defaults.disabledActiveTrackColor,
+      disabledInactiveTrackColor: sliderTheme.disabledInactiveTrackColor ?? defaults.disabledInactiveTrackColor,
+      disabledSecondaryActiveTrackColor: sliderTheme.disabledSecondaryActiveTrackColor ?? defaults.disabledSecondaryActiveTrackColor,
+      activeTickMarkColor: sliderTheme.activeTickMarkColor ?? defaults.activeTickMarkColor,
+      inactiveTickMarkColor: sliderTheme.inactiveTickMarkColor ?? defaults.inactiveTickMarkColor,
+      disabledActiveTickMarkColor: sliderTheme.disabledActiveTickMarkColor ?? defaults.disabledActiveTickMarkColor,
+      disabledInactiveTickMarkColor: sliderTheme.disabledInactiveTickMarkColor ?? defaults.disabledInactiveTickMarkColor,
       thumbColor: sliderTheme.thumbColor ?? defaults.thumbColor,
-      disabledThumbColor:
-          sliderTheme.disabledThumbColor ?? defaults.disabledThumbColor,
-      valueIndicatorTextStyle: sliderTheme.valueIndicatorTextStyle ??
-          defaults.valueIndicatorTextStyle,
+      disabledThumbColor: sliderTheme.disabledThumbColor ?? defaults.disabledThumbColor,
+      valueIndicatorTextStyle: sliderTheme.valueIndicatorTextStyle ?? defaults.valueIndicatorTextStyle,
     );
 
     return LayoutBuilder(
@@ -207,82 +187,69 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider>
           onPointerUp: (e) => _onPointerUp(e, constraints),
           child: Container(
             color: Colors.transparent,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                SizedBox(
-                  width: (constraints.maxWidth * _percent).clamp(
-                    widget.thumbWidth,
-                    constraints.maxWidth,
-                  ),
-                  height: widget.height,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            if (constraints.maxWidth <= 0.0) {
-                              return const SizedBox.shrink();
-                            }
-                            return AnimatedSlide(
-                              width: constraints.maxWidth,
-                              height: widget.height,
-                              repeat:
-                                  (constraints.maxWidth / widget.height).ceil(),
-                              velocity: widget.height / 48.0 * 24.0,
-                              builder: (context) =>
-                                  // [TweenAnimationBuilder] for animating the amplitude change of the each wave segment.
-                                  TweenAnimationBuilder<double>(
-                                tween: Tween<double>(
-                                  begin: _running ? _amplitude : 0.0,
-                                  end: _running ? _amplitude : 0.0,
-                                ),
-                                curve: widget.transitionCurve,
-                                duration: widget.transitionDuration,
-                                builder: (context, value, _) {
-                                  return AnimatedBuilder(
-                                    animation: _animation,
-                                    builder: (context, _) => CustomPaint(
-                                      painter: SinePainter(
-                                        amplitude: value,
-                                        phase: _animation.value,
-                                        strokeWidth: sliderTheme.trackHeight!,
-                                        delta: widget.height / 25.0,
-                                        color: sliderTheme.activeTrackColor!,
-                                      ),
-                                      size: Size(
-                                        widget.height,
-                                        widget.height,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            );
-                          },
+                ClipRect(
+                  clipper: RectClipper(_percent),
+                  child: SizedBox(
+                    width: constraints.maxWidth,
+                    height: widget.height,
+                    child: AnimatedSlide(
+                      width: double.infinity,
+                      height: widget.height,
+                      repeat: (constraints.maxWidth / widget.height).ceil(),
+                      velocity: widget.height / 48.0 * 24.0,
+                      builder: (context) => TweenAnimationBuilder<double>(
+                        tween: Tween<double>(
+                          begin: _running ? _amplitude : 0.0,
+                          end: _running ? _amplitude : 0.0,
                         ),
-                      ),
-                      widget.thumbBuilder?.call(context) ??
-                          Container(
-                            width: widget.thumbWidth,
-                            height: widget.height * 0.75,
-                            decoration: BoxDecoration(
-                              color: sliderTheme.thumbColor!,
-                              borderRadius: BorderRadius.circular(
-                                widget.thumbWidth / 2.0,
+                        curve: widget.transitionCurve,
+                        duration: widget.transitionDuration,
+                        builder: (context, value, _) {
+                          return AnimatedBuilder(
+                            animation: _animation,
+                            builder: (context, _) => CustomPaint(
+                              painter: SinePainter(
+                                amplitude: value,
+                                phase: _animation.value,
+                                strokeWidth: sliderTheme.trackHeight!,
+                                delta: widget.height / 25.0,
+                                color: sliderTheme.activeTrackColor!,
+                              ),
+                              size: Size(
+                                widget.height,
+                                widget.height,
                               ),
                             ),
-                          ),
-                    ],
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ),
-                Expanded(
+                Positioned(
+                  left: constraints.maxWidth * _percent - widget.thumbWidth / 2.0,
+                  right: 0.0,
                   child: Container(
                     color: sliderTheme.inactiveTrackColor!,
                     height: sliderTheme.trackHeight!,
                   ),
+                ),
+                Positioned(
+                  left: constraints.maxWidth * _percent - widget.thumbWidth,
+                  child: widget.thumbBuilder?.call(context) ??
+                      Container(
+                        width: widget.thumbWidth,
+                        height: widget.height * 0.6,
+                        decoration: BoxDecoration(
+                          color: sliderTheme.thumbColor!,
+                          borderRadius: BorderRadius.circular(
+                            widget.thumbWidth / 2.0,
+                          ),
+                        ),
+                      ),
                 ),
               ],
             ),
@@ -296,7 +263,7 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider>
 /// {@template animated_slide}
 ///
 /// AnimatedSlide
-/// ------------
+/// -------------
 /// Animated sliding horizontally from right to left.
 ///
 /// {@endtemplate}
@@ -404,8 +371,7 @@ class SinePainter extends CustomPainter {
 
     final path = Path();
     for (double x = 0.0; x <= size.width + delta; x += delta) {
-      final y =
-          size.height / 2.0 + amplitude * sin(x / size.width * 2 * pi + phase);
+      final y = size.height / 2.0 + amplitude * sin(x / size.width * 2 * pi + phase);
       if (x == 0.0) {
         path.moveTo(x, y);
       }
@@ -418,71 +384,31 @@ class SinePainter extends CustomPainter {
   bool shouldRepaint(CustomPainter oldDelegate) => true;
 }
 
-// --------------------------------------------------
+/// {@template rect_clipper}
+///
+/// RectClipper
+/// -----------
+/// A [CustomClipper] to clip the wave.
+///
+/// {@endtemplate}
+class RectClipper extends CustomClipper<Rect> {
+  /// The percentage of the clip.
+  final double percent;
 
-class _SliderDefaultsM2 extends SliderThemeData {
-  _SliderDefaultsM2(this.context)
-      : _colors = Theme.of(context).colorScheme,
-        super(trackHeight: 2.0);
-
-  final BuildContext context;
-  final ColorScheme _colors;
-
-  @override
-  Color? get activeTrackColor => _colors.primary;
-
-  @override
-  Color? get inactiveTrackColor => _colors.primary.withOpacity(0.24);
+  /// {@macro rect_clipper}
+  const RectClipper(this.percent);
 
   @override
-  Color? get secondaryActiveTrackColor => _colors.primary.withOpacity(0.54);
+  Rect getClip(Size size) => Rect.fromLTRB(0.0, 0.0, size.width * percent, size.height);
 
   @override
-  Color? get disabledActiveTrackColor => _colors.onSurface.withOpacity(0.32);
-
-  @override
-  Color? get disabledInactiveTrackColor => _colors.onSurface.withOpacity(0.12);
-
-  @override
-  Color? get disabledSecondaryActiveTrackColor =>
-      _colors.onSurface.withOpacity(0.12);
-
-  @override
-  Color? get activeTickMarkColor => _colors.onPrimary.withOpacity(0.54);
-
-  @override
-  Color? get inactiveTickMarkColor => _colors.primary.withOpacity(0.54);
-
-  @override
-  Color? get disabledActiveTickMarkColor => _colors.onPrimary.withOpacity(0.12);
-
-  @override
-  Color? get disabledInactiveTickMarkColor =>
-      _colors.onSurface.withOpacity(0.12);
-
-  @override
-  Color? get thumbColor => _colors.primary;
-
-  @override
-  Color? get disabledThumbColor =>
-      Color.alphaBlend(_colors.onSurface.withOpacity(.38), _colors.surface);
-
-  @override
-  Color? get overlayColor => _colors.primary.withOpacity(0.12);
-
-  @override
-  TextStyle? get valueIndicatorTextStyle =>
-      Theme.of(context).textTheme.bodyLarge!.copyWith(
-            color: _colors.onPrimary,
-          );
-
-  @override
-  SliderComponentShape? get valueIndicatorShape =>
-      const RectangularSliderValueIndicatorShape();
+  bool shouldReclip(covariant CustomClipper<Rect> oldClipper) => (oldClipper as RectClipper).percent != percent;
 }
 
+// --------------------------------------------------
+
 class _SliderDefaultsM3 extends SliderThemeData {
-  _SliderDefaultsM3(this.context) : super(trackHeight: 2.0);
+  _SliderDefaultsM3(this.context) : super(trackHeight: 2.5);
 
   final BuildContext context;
   late final ColorScheme _colors = Theme.of(context).colorScheme;
@@ -503,33 +429,28 @@ class _SliderDefaultsM3 extends SliderThemeData {
   Color? get disabledInactiveTrackColor => _colors.onSurface.withOpacity(0.12);
 
   @override
-  Color? get disabledSecondaryActiveTrackColor =>
-      _colors.onSurface.withOpacity(0.12);
+  Color? get disabledSecondaryActiveTrackColor => _colors.onSurface.withOpacity(0.12);
 
   @override
   Color? get activeTickMarkColor => _colors.onPrimary.withOpacity(0.38);
 
   @override
-  Color? get inactiveTickMarkColor =>
-      _colors.onSurfaceVariant.withOpacity(0.38);
+  Color? get inactiveTickMarkColor => _colors.onSurfaceVariant.withOpacity(0.38);
 
   @override
   Color? get disabledActiveTickMarkColor => _colors.onSurface.withOpacity(0.38);
 
   @override
-  Color? get disabledInactiveTickMarkColor =>
-      _colors.onSurface.withOpacity(0.38);
+  Color? get disabledInactiveTickMarkColor => _colors.onSurface.withOpacity(0.38);
 
   @override
   Color? get thumbColor => _colors.primary;
 
   @override
-  Color? get disabledThumbColor =>
-      Color.alphaBlend(_colors.onSurface.withOpacity(0.38), _colors.surface);
+  Color? get disabledThumbColor => Color.alphaBlend(_colors.onSurface.withOpacity(0.38), _colors.surface);
 
   @override
-  Color? get overlayColor =>
-      MaterialStateColor.resolveWith((Set<MaterialState> states) {
+  Color? get overlayColor => MaterialStateColor.resolveWith((Set<MaterialState> states) {
         if (states.contains(MaterialState.dragged)) {
           return _colors.primary.withOpacity(0.12);
         }
@@ -544,14 +465,68 @@ class _SliderDefaultsM3 extends SliderThemeData {
       });
 
   @override
-  TextStyle? get valueIndicatorTextStyle =>
-      Theme.of(context).textTheme.labelMedium!.copyWith(
-            color: _colors.onPrimary,
-          );
+  TextStyle? get valueIndicatorTextStyle => Theme.of(context).textTheme.labelMedium!.copyWith(
+        color: _colors.onPrimary,
+      );
 
   @override
-  SliderComponentShape? get valueIndicatorShape =>
-      const DropSliderValueIndicatorShape();
+  SliderComponentShape? get valueIndicatorShape => const DropSliderValueIndicatorShape();
 }
 
-  // --------------------------------------------------
+class _SliderDefaultsM2 extends SliderThemeData {
+  _SliderDefaultsM2(this.context)
+      : _colors = Theme.of(context).colorScheme,
+        super(trackHeight: 2.5);
+
+  final BuildContext context;
+  final ColorScheme _colors;
+
+  @override
+  Color? get activeTrackColor => _colors.primary;
+
+  @override
+  Color? get inactiveTrackColor => _colors.primary.withOpacity(0.24);
+
+  @override
+  Color? get secondaryActiveTrackColor => _colors.primary.withOpacity(0.54);
+
+  @override
+  Color? get disabledActiveTrackColor => _colors.onSurface.withOpacity(0.32);
+
+  @override
+  Color? get disabledInactiveTrackColor => _colors.onSurface.withOpacity(0.12);
+
+  @override
+  Color? get disabledSecondaryActiveTrackColor => _colors.onSurface.withOpacity(0.12);
+
+  @override
+  Color? get activeTickMarkColor => _colors.onPrimary.withOpacity(0.54);
+
+  @override
+  Color? get inactiveTickMarkColor => _colors.primary.withOpacity(0.54);
+
+  @override
+  Color? get disabledActiveTickMarkColor => _colors.onPrimary.withOpacity(0.12);
+
+  @override
+  Color? get disabledInactiveTickMarkColor => _colors.onSurface.withOpacity(0.12);
+
+  @override
+  Color? get thumbColor => _colors.primary;
+
+  @override
+  Color? get disabledThumbColor => Color.alphaBlend(_colors.onSurface.withOpacity(.38), _colors.surface);
+
+  @override
+  Color? get overlayColor => _colors.primary.withOpacity(0.12);
+
+  @override
+  TextStyle? get valueIndicatorTextStyle => Theme.of(context).textTheme.bodyLarge!.copyWith(
+        color: _colors.onPrimary,
+      );
+
+  @override
+  SliderComponentShape? get valueIndicatorShape => const RectangularSliderValueIndicatorShape();
+}
+
+// --------------------------------------------------
