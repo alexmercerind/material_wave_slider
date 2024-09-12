@@ -82,14 +82,10 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> with SingleTicke
   bool _paused = false;
   bool _running = true;
 
-  // [AnimationController] for animating the phase change of the each wave segment.
-  // This makes the wave appear to be moving.
-  late final AnimationController _animation = AnimationController(
-    vsync: this,
-    lowerBound: 0.0,
-    upperBound: 2 * pi,
-    duration: Duration(milliseconds: widget.velocity.round()),
-  );
+  late final ScrollController _controller = ScrollController();
+
+  Path? defaultPath;
+  Widget? defaultPaint;
 
   void pause() {
     if (_paused) return;
@@ -145,15 +141,22 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> with SingleTicke
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _animation.repeat();
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+      const multiplier = 1 << 32;
+      final distance = widget.height * multiplier;
+      final duration = widget.velocity * multiplier;
+      _controller.animateTo(
+        distance,
+        duration: Duration(milliseconds: duration.round()),
+        curve: Curves.linear,
+      );
     });
   }
 
   @override
   void dispose() {
-    _animation.dispose();
     super.dispose();
+    _controller.dispose();
   }
 
   @override
@@ -179,6 +182,20 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> with SingleTicke
       valueIndicatorTextStyle: sliderTheme.valueIndicatorTextStyle ?? defaults.valueIndicatorTextStyle,
     );
 
+    defaultPath ??= SinePainter.calculatePath(widget.height / 25.0, _amplitude, 0.0, widget.height, widget.height);
+    defaultPaint ??= CustomPaint(
+      key: const ValueKey(true),
+      painter: SinePainter(
+        color: sliderTheme.activeTrackColor!,
+        delta: widget.height / 25.0,
+        phase: 0.0,
+        amplitude: _amplitude,
+        strokeWidth: sliderTheme.trackHeight!,
+        path: defaultPath,
+      ),
+      size: Size(widget.height, widget.height),
+    );
+
     return LayoutBuilder(
       builder: (context, constraints) {
         return Listener(
@@ -195,12 +212,13 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> with SingleTicke
                   child: SizedBox(
                     width: constraints.maxWidth,
                     height: widget.height,
-                    child: AnimatedSlide(
-                      width: double.infinity,
-                      height: widget.height,
-                      repeat: (constraints.maxWidth / widget.height).ceil(),
-                      velocity: widget.height / 48.0 * 24.0,
-                      builder: (context) => TweenAnimationBuilder<double>(
+                    child: ListView.builder(
+                      controller: _controller,
+                      itemExtent: widget.height,
+                      padding: EdgeInsets.zero,
+                      scrollDirection: Axis.horizontal,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemBuilder: (context, _) => TweenAnimationBuilder<double>(
                         tween: Tween<double>(
                           begin: _running ? _amplitude : 0.0,
                           end: _running ? _amplitude : 0.0,
@@ -208,21 +226,19 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> with SingleTicke
                         curve: widget.transitionCurve,
                         duration: widget.transitionDuration,
                         builder: (context, value, _) {
-                          return AnimatedBuilder(
-                            animation: _animation,
-                            builder: (context, _) => CustomPaint(
-                              painter: SinePainter(
-                                amplitude: value,
-                                phase: _animation.value,
-                                strokeWidth: sliderTheme.trackHeight!,
-                                delta: widget.height / 25.0,
-                                color: sliderTheme.activeTrackColor!,
-                              ),
-                              size: Size(
-                                widget.height,
-                                widget.height,
-                              ),
+                          if (value == _amplitude) {
+                            return defaultPaint!;
+                          }
+                          return CustomPaint(
+                            key: ValueKey(value),
+                            painter: SinePainter(
+                              color: sliderTheme.activeTrackColor!,
+                              delta: widget.height / 25.0,
+                              phase: 0.0,
+                              amplitude: value,
+                              strokeWidth: sliderTheme.trackHeight!,
                             ),
+                            size: Size(widget.height, widget.height),
                           );
                         },
                       ),
@@ -238,7 +254,7 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> with SingleTicke
                   ),
                 ),
                 Positioned(
-                  left: constraints.maxWidth * _percent - widget.thumbWidth,
+                  left: (constraints.maxWidth * _percent - widget.thumbWidth / 3.0).limit(constraints.maxWidth * _percent - widget.thumbWidth),
                   child: widget.thumbBuilder?.call(context) ??
                       Container(
                         width: widget.thumbWidth,
@@ -256,71 +272,6 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> with SingleTicke
           ),
         );
       },
-    );
-  }
-}
-
-/// {@template animated_slide}
-///
-/// AnimatedSlide
-/// -------------
-/// Animated sliding horizontally from right to left.
-///
-/// {@endtemplate}
-class AnimatedSlide extends StatelessWidget {
-  /// The [CustomPaint] to draw the sine wave.
-  final Widget Function(BuildContext) builder;
-
-  /// The width of the wave.
-  final double width;
-
-  /// The height of the wave.
-  final double height;
-
-  /// The velocity of the wave.
-  final double velocity;
-
-  /// The number of times the wave segment should be drawn.
-  final int repeat;
-
-  /// {@macro animated_sine}
-  const AnimatedSlide({
-    Key? key,
-    required this.builder,
-    required this.width,
-    required this.height,
-    this.velocity = 64.0,
-    this.repeat = 3,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        SizedBox(
-          width: width,
-          height: height,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const NeverScrollableScrollPhysics(),
-            child: SizedBox(
-              width: height * repeat,
-              height: height,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  for (int i = 0; i < repeat; i++) builder.call(context),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const Positioned.fill(
-          child: ColoredBox(color: Colors.transparent),
-        ),
-      ],
     );
   }
 }
@@ -351,15 +302,31 @@ class SinePainter extends CustomPainter {
   /// The stroke-width of the wave.
   final double strokeWidth;
 
+  /// Pre-calculated [Path] to draw the wave.
+  final Path? path;
+
   /// {@macro sine_painter}
-  const SinePainter({
+  SinePainter({
     required this.color,
     this.delta = 2.0,
     this.phase = pi,
     this.amplitude = 16.0,
     this.strokeCap = StrokeCap.butt,
     this.strokeWidth = 2.0,
+    this.path,
   });
+
+  static Path calculatePath(double delta, double amplitude, double phase, double width, double height) {
+    final path = Path();
+    for (double x = 0.0; x <= width + delta; x += delta) {
+      final y = height / 2.0 + amplitude * sin(x / width * 2 * pi + phase);
+      if (x == 0.0) {
+        path.moveTo(x, y);
+      }
+      path.lineTo(x, y);
+    }
+    return path;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -369,19 +336,17 @@ class SinePainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke;
 
-    final path = Path();
-    for (double x = 0.0; x <= size.width + delta; x += delta) {
-      final y = size.height / 2.0 + amplitude * sin(x / size.width * 2 * pi + phase);
-      if (x == 0.0) {
-        path.moveTo(x, y);
-      }
-      path.lineTo(x, y);
-    }
-    canvas.drawPath(path, paint);
+    canvas.drawPath(
+      path ?? calculatePath(delta, amplitude, phase, size.width, size.height),
+      paint,
+    );
   }
 
   @override
-  bool shouldRepaint(CustomPainter oldDelegate) => true;
+  bool shouldRepaint(CustomPainter oldDelegate) {
+    final previous = (oldDelegate as SinePainter);
+    return color != previous.color || delta != previous.delta || phase != previous.phase || amplitude != previous.amplitude || strokeCap != previous.strokeCap || strokeWidth != previous.strokeWidth;
+  }
 }
 
 /// {@template rect_clipper}
@@ -530,3 +495,7 @@ class _SliderDefaultsM2 extends SliderThemeData {
 }
 
 // --------------------------------------------------
+
+extension on double {
+  double limit(double value) => this < 0.0 ? 0.0 : (this > value ? value : this);
+}
