@@ -36,6 +36,9 @@ class MaterialWaveSlider extends StatefulWidget {
   /// The velocity of the wave.
   final double velocity;
 
+  /// Whether the wave is currently paused.
+  final bool paused;
+
   /// The [Curve] of the amplitude change transition.
   final Curve transitionCurve;
 
@@ -55,20 +58,21 @@ class MaterialWaveSlider extends StatefulWidget {
 
   /// {@macro material_wave_slider}
   const MaterialWaveSlider({
-    Key? key,
+    super.key,
     required this.value,
     this.min = 0.0,
     this.max = 1.0,
     required this.onChanged,
     this.height = 48.0,
     this.velocity = 2600.0,
+    this.paused = false,
     this.amplitude,
     this.transitionCurve = Curves.easeInOut,
     this.transitionDuration = const Duration(milliseconds: 200),
     this.transitionOnChange = true,
     this.thumbBuilder,
     this.thumbWidth = 6.0,
-  }) : super(key: key);
+  });
 
   @override
   State<MaterialWaveSlider> createState() => MaterialWaveSliderState();
@@ -84,8 +88,19 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> with SingleTicke
 
   late final ScrollController _controller = ScrollController();
 
+  Color? color;
   Path? defaultPath;
   Widget? defaultPaint;
+
+  @override
+  void didUpdateWidget(covariant MaterialWaveSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.paused) {
+      pause();
+    } else {
+      resume();
+    }
+  }
 
   void pause() {
     if (_paused) return;
@@ -182,6 +197,12 @@ class MaterialWaveSliderState extends State<MaterialWaveSlider> with SingleTicke
       valueIndicatorTextStyle: sliderTheme.valueIndicatorTextStyle ?? defaults.valueIndicatorTextStyle,
     );
 
+    if (color != sliderTheme.activeTrackColor) {
+      defaultPath = null;
+      defaultPaint = null;
+    }
+
+    color ??= sliderTheme.activeTrackColor;
     defaultPath ??= SinePainter.calculatePath(widget.height / 25.0, _amplitude, 0.0, widget.height, widget.height);
     defaultPaint ??= CustomPaint(
       key: const ValueKey(true),
@@ -497,5 +518,5 @@ class _SliderDefaultsM2 extends SliderThemeData {
 // --------------------------------------------------
 
 extension on double {
-  double limit(double value) => this < 0.0 ? 0.0 : (this > value ? value : this);
+  double limit(double value) => (this < 0.0) ? 0.0 : (this > value.abs() ? value.abs() : this);
 }
